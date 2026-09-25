@@ -33,8 +33,21 @@ class NetworkSimulator:
                 r["drop_rate_pct"] += 2.5; r["dl_tput_mbps"] -= 8
             elif fault == "congestion":
                 r["prb_util_pct"] = np.random.normal(94, 2); r["dl_tput_mbps"] -= 18
+            elif fault == "combined":
+                r["ul_noise_dbm"] += 15; r["rrc_success_pct"] -= 4; r["drop_rate_pct"] += 1.2
+                r["prb_util_pct"] = np.random.normal(94, 2); r["dl_tput_mbps"] -= 18
+            elif fault == "sleeping_cell":
+                r["prb_util_pct"] = max(0, np.random.normal(2, 1))
+                r["dl_tput_mbps"] = max(0, np.random.normal(0.5, 0.3))
+                r["drop_rate_pct"] = max(0, np.random.normal(0.1, 0.05))
+            elif fault == "pim":
+                r["ul_noise_dbm"] += 12; r["drop_rate_pct"] += 1.5
+                r["prb_util_pct"] = np.random.normal(75, 3)
             rows.append(r)
         return pd.DataFrame(rows).round(2)
+
+    def true_fault(self, cell):
+        return self.faults.get(cell, "none")
 
     def apply(self, cell, fault_type):
         """Network 'responds' to a change. Only clears the fault if the right fix was chosen."""

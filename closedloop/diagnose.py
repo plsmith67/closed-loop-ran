@@ -6,7 +6,8 @@ comes ONLY from the approved template table below. The LLM never writes commands
 import json
 import requests
 
-FAULT_TYPES = ["ul_interference", "overshoot", "congestion", "unknown"]
+FAULT_TYPES = ["ul_interference", "overshoot", "congestion", "multiple",
+               "sleeping_cell", "pim", "unknown"]
 
 ACTION_TEMPLATES = {
     "ul_interference": "cmedit set {cell} EUtranCellFDD pZeroNominalPusch=-100  # mitigation, open field ticket",
@@ -39,7 +40,11 @@ SYSTEM = (
     "High ul_noise_dbm with low rrc_success_pct indicates ul_interference. "
     "High drop_rate_pct with normal ul_noise_dbm indicates overshoot. "
     "High prb_util_pct with low throughput indicates congestion. "
-    "If no thresholds are breached, answer unknown. "
+    "multiple: more than one fault pattern is present on the same cell at once. "
+    "sleeping_cell: the cell is on air and alarm-free but carries almost no traffic or throughput. "
+    "pim: passive intermodulation, uplink noise that rises with downlink load, typically hurting "
+    "retainability while access (RRC success) stays normal. "
+    "If no thresholds are breached and there is no sleeping_cell pattern, answer unknown. "
     'Reply ONLY with JSON: {"fault_type": "...", "rca": "one sentence"}'
 )
 
