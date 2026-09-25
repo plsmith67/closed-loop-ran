@@ -23,7 +23,7 @@ detect:
     prb_util_pct:    [gt, 85.0]
   ml:
     enabled: true
-    contamination: 0.08
+    contamination: 0.04
 
 # ---------- Diagnosis ----------
 diagnose:
