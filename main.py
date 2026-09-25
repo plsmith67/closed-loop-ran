@@ -30,6 +30,7 @@ EXPECTED_LABEL = {
     "none": "unknown",
 }
 FAULT_ORDER = list(EXPECTED_LABEL)
+MAX_RETRIES = 2  # one retry after first verify failure, then escalate
 
 
 def empty_scores():
@@ -53,11 +54,12 @@ def run(cfg, quiet=False, show_summary=True, run_suffix=""):
     t = now.replace(second=0, microsecond=0)
     log = AuditLog(cfg["output"]["log_dir"], run_id)
     pending = {}
+    fail_counts = {}  # (cell, fault_type) -> consecutive verify failures
     scores = empty_scores()
     missed = {fault: 0 for fault in FAULT_ORDER if fault != "none"}
     stats = {"detected": 0, "actions": 0, "resolved": 0, "unresolved": 0,
-             "review_only": 0, "shadow_real_total": 0, "shadow_real_agree": 0,
-             "shadow_ml_total": 0, "shadow_ml_agree": 0}
+             "review_only": 0, "escalated": 0, "shadow_real_total": 0,
+             "shadow_real_agree": 0, "shadow_ml_total": 0, "shadow_ml_agree": 0}
 
     if not quiet:
         print(f"Diagnosis mode: {cfg['diagnose']['mode']} | auto_approve: {lc['auto_approve']}")
@@ -74,6 +76,9 @@ def run(cfg, quiet=False, show_summary=True, run_suffix=""):
             if not quiet:
                 print(f"  VERIFY {cell}: {v['kpi']} {v['before']} -> {v['after']}  {tag}")
             stats["resolved" if v["resolved"] else "unresolved"] += 1
+            if not v["resolved"]:
+                key = (cell, fault)
+                fail_counts[key] = fail_counts.get(key, 0) + 1
             log.write(ts=t, stage="verify", cell=cell, fault=fault, **truth, **v)
             del pending[cell]
 
@@ -129,6 +134,17 @@ def run(cfg, quiet=False, show_summary=True, run_suffix=""):
                     print("    No automated action. Queued for engineer review.")
                 stats["review_only"] += 1
                 log.write(ts=t, stage="review", cell=r["cell"], **truth, **d)
+                continue
+            fail_key = (r["cell"], d["fault_type"])
+            n_fail = fail_counts.get(fail_key, 0)
+            if n_fail >= MAX_RETRIES:
+                if not quiet:
+                    print(f"  ESCALATE {r['cell']}: {d['fault_type']} failed verification "
+                          f"{n_fail} times. No further automated action. "
+                          f"Routed to engineer escalation.")
+                stats["escalated"] += 1
+                log.write(ts=t, stage="escalate", cell=r["cell"],
+                          failure_count=n_fail, **truth, **d)
                 continue
             ok = True if quiet and lc["auto_approve"] else approve(
                 r["cell"], d["rca"], cmd, lc["auto_approve"])
