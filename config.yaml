@@ -1,0 +1,41 @@
+# ---------- Loop ----------
+loop:
+  cycles: 4
+  rop_minutes: 15
+  auto_approve: false        # false = Level 3 (human approves), true = Level 4
+
+# ---------- Simulator ----------
+simulator:
+  seed: 7
+  sites: 8                   # 3 sectors each
+  fix_success_rate: 0.85     # chance an approved action actually clears the fault
+  faults:
+    SITE003_B: ul_interference
+    SITE006_A: overshoot
+    SITE007_C: congestion
+
+# ---------- Detection ----------
+detect:
+  thresholds:
+    drop_rate_pct:   [gt, 2.0]
+    rrc_success_pct: [lt, 97.0]
+    ul_noise_dbm:    [gt, -108.0]
+    prb_util_pct:    [gt, 85.0]
+  ml:
+    enabled: true
+    contamination: 0.08
+
+# ---------- Diagnosis ----------
+diagnose:
+  # rules  = rule-based RCA only
+  # llm    = LLM drives decisions (falls back to rules if LLM fails)
+  # shadow = rules drive decisions, LLM runs alongside and agreement is logged
+  mode: rules
+  llm:
+    url: http://localhost:11434/api/generate   # change to http://<jetson-ip>:11434/... later
+    model: llama3.2:3b
+    timeout_s: 60
+
+# ---------- Output ----------
+output:
+  log_dir: logs
