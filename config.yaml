@@ -13,6 +13,9 @@ simulator:
     SITE003_B: ul_interference
     SITE006_A: overshoot
     SITE007_C: congestion
+    SITE002_A: combined
+    SITE004_C: sleeping_cell
+    SITE008_B: pim
 
 # ---------- Detection ----------
 detect:
