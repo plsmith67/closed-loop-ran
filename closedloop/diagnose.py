@@ -35,6 +35,11 @@ SYSTEM = (
     "Normal ranges: drop rate under 2%, RRC success above 97%, UL noise below -108 dBm, "
     "PRB utilization below 85%. Classify the fault as exactly one of: "
     + ", ".join(FAULT_TYPES) + ". Use 'unknown' if KPIs look normal or unclear. "
+    "The breached thresholds list is authoritative; base your diagnosis on which KPIs breached. "
+    "High ul_noise_dbm with low rrc_success_pct indicates ul_interference. "
+    "High drop_rate_pct with normal ul_noise_dbm indicates overshoot. "
+    "High prb_util_pct with low throughput indicates congestion. "
+    "If no thresholds are breached, answer unknown. "
     'Reply ONLY with JSON: {"fault_type": "...", "rca": "one sentence"}'
 )
 
@@ -42,8 +47,10 @@ def llm_diagnose(r, cfg):
     kpis = (f"Cell {r['cell']}: drop rate {r['drop_rate_pct']}%, RRC success {r['rrc_success_pct']}%, "
             f"UL noise {r['ul_noise_dbm']} dBm, PRB util {r['prb_util_pct']}%, "
             f"DL throughput {r['dl_tput_mbps']} Mbps.")
+    breaches = (f"Thresholds breached: {', '.join(r['breaches'])}" if r["breaches"]
+                else "Thresholds breached: none (all KPIs within normal range)")
     resp = requests.post(cfg["url"], timeout=cfg["timeout_s"], json={
-        "model": cfg["model"], "system": SYSTEM, "prompt": kpis,
+        "model": cfg["model"], "system": SYSTEM, "prompt": f"{kpis}\n{breaches}",
         "stream": False, "format": "json", "options": {"temperature": 0},
     })
     resp.raise_for_status()

@@ -20,11 +20,14 @@ from closedloop.verify import verify
 def run(cfg):
     lc, th = cfg["loop"], cfg["detect"]["thresholds"]
     sim = NetworkSimulator(cfg["simulator"])
-    t = datetime.now().replace(second=0, microsecond=0)
-    log = AuditLog(cfg["output"]["log_dir"], t.strftime("%Y%m%d_%H%M%S"))
+    now = datetime.now()
+    run_id = now.strftime("%Y%m%d_%H%M%S")
+    t = now.replace(second=0, microsecond=0)
+    log = AuditLog(cfg["output"]["log_dir"], run_id)
     pending = {}
     stats = {"detected": 0, "actions": 0, "resolved": 0, "unresolved": 0,
-             "review_only": 0, "shadow_total": 0, "shadow_agree": 0}
+             "review_only": 0, "shadow_real_total": 0, "shadow_real_agree": 0,
+             "shadow_ml_total": 0, "shadow_ml_agree": 0}
 
     print(f"Diagnosis mode: {cfg['diagnose']['mode']} | auto_approve: {lc['auto_approve']}")
     for c in range(1, lc["cycles"] + 1):
@@ -50,8 +53,9 @@ def run(cfg):
             print(f"  DETECT {r['cell']}: breaches={r['breaches']} ml={bool(r['ml_anomaly'])}")
             print(f"    RCA [{d['source']}]: {d['fault_type']} | {d['rca']}")
             if "agree" in d:
-                stats["shadow_total"] += 1
-                stats["shadow_agree"] += d["agree"]
+                group = "real" if r["breaches"] else "ml"
+                stats[f"shadow_{group}_total"] += 1
+                stats[f"shadow_{group}_agree"] += d["agree"]
                 print(f"    LLM shadow: {d['llm_fault']} ({'agrees' if d['agree'] else 'DISAGREES'})")
             if "llm_error" in d:
                 print(f"    LLM unavailable, used rules: {d['llm_error']}")
@@ -75,9 +79,12 @@ def run(cfg):
     for k, v in stats.items():
         if not k.startswith("shadow"):
             print(f"  {k:12s} {v}")
-    if stats["shadow_total"]:
-        pct = 100 * stats["shadow_agree"] / stats["shadow_total"]
-        print(f"  LLM/rules agreement: {stats['shadow_agree']}/{stats['shadow_total']} ({pct:.0f}%)")
+    if stats["shadow_real_total"]:
+        pct = 100 * stats["shadow_real_agree"] / stats["shadow_real_total"]
+        print(f"  LLM agreement on real faults: {stats['shadow_real_agree']}/{stats['shadow_real_total']} ({pct:.0f}%)")
+    if stats["shadow_ml_total"]:
+        pct = 100 * stats["shadow_ml_agree"] / stats["shadow_ml_total"]
+        print(f"  LLM agreement on ML-only cells: {stats['shadow_ml_agree']}/{stats['shadow_ml_total']} ({pct:.0f}%)")
     print(f"  Audit log: {log.path}")
 
 if __name__ == "__main__":
