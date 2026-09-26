@@ -36,7 +36,7 @@ diagnose:
   mode: rules
   llm:
     url: http://localhost:11434/api/generate   # change to http://<jetson-ip>:11434/... later
-    model: llama3.2:3b
+    model: llama3.1:8b
     timeout_s: 60
 
 # ---------- Output ----------
