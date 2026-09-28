@@ -73,7 +73,7 @@ Dependencies are in `requirements.txt`: `numpy`, `pandas`, `scikit-learn`, `pyya
 ### Windows
 
 ```bat
-git clone <your-repo-url> closed-loop-ran
+git clone https://github.com/plsmith67/closed-loop-ran.git closed-loop-ran
 cd closed-loop-ran
 python -m venv .venv
 .venv\Scripts\activate
@@ -84,7 +84,7 @@ python main.py
 ### Linux and Jetson
 
 ```bash
-git clone <your-repo-url> closed-loop-ran && cd closed-loop-ran
+git clone https://github.com/plsmith67/closed-loop-ran.git closed-loop-ran && cd closed-loop-ran
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
