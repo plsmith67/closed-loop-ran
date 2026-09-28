@@ -24,6 +24,7 @@ detect:
     rrc_success_pct: [lt, 97.0]
     ul_noise_dbm:    [gt, -108.0]
     prb_util_pct:    [gt, 85.0]
+    sleeping_cell_prb: [lt, 5.0]
   ml:
     enabled: true
     contamination: 0.04

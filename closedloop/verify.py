@@ -3,7 +3,8 @@ from .detect import breaches_for
 
 FAULT_KPI = {"ul_interference": "ul_noise_dbm",
              "congestion": "prb_util_pct",
-             "overshoot": "drop_rate_pct"}
+             "overshoot": "drop_rate_pct",
+             "sleeping_cell": "prb_util_pct"}
 
 def verify(prev_row, new_row, fault_type, thresholds):
     key = FAULT_KPI[fault_type]

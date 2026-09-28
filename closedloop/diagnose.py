@@ -13,6 +13,7 @@ ACTION_TEMPLATES = {
     "ul_interference": "cmedit set {cell} EUtranCellFDD pZeroNominalPusch=-100  # mitigation, open field ticket",
     "overshoot":       "cmedit set {cell} RetSubUnit electricalAntennaTilt=+10  # +1.0 deg downtilt",
     "congestion":      "cmedit set {cell} EUtranCellFDD cellIndividualOffsetEUtran=-3  # offload to neighbors",
+    "sleeping_cell":   "cmedit set {cell} EUtranCellFDD administrativeState=UNLOCKED  # cell reset, verify RF path and transport",
 }
 
 def command_for(fault_type, cell):
@@ -22,6 +23,10 @@ def command_for(fault_type, cell):
 # ---------------- Rules ----------------
 def rule_diagnose(r):
     b = set(r["breaches"])
+    if "sleeping_cell_pattern" in b:
+        return ("sleeping_cell",
+                f"PRB util {r['prb_util_pct']}% with throughput {r['dl_tput_mbps']} Mbps "
+                f"and drop rate {r['drop_rate_pct']}%; cell on-air but carrying almost no traffic")
     if "ul_noise_dbm" in b:
         return "ul_interference", f"UL noise {r['ul_noise_dbm']} dBm with RRC success {r['rrc_success_pct']}%; likely external interference"
     if "prb_util_pct" in b:
