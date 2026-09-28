@@ -32,7 +32,7 @@ Every cell starts from a healthy KPI draw. `closedloop/simulator.py` then overwr
 | `overshoot` | Drop rate +2.5 points and DL throughput −8 Mbps. UL noise stays in the healthy range |
 | `congestion` | PRB utilization drawn around 94%, DL throughput −18 Mbps |
 | `combined` | The `ul_interference` offsets and the `congestion` pattern on the same cell |
-| `sleeping_cell` | The cell stays on air with almost no traffic: PRB utilization near 2%, DL throughput near 0.5 Mbps, drop rate near 0.1%. UL noise and RRC success stay healthy |
+| `sleeping_cell` | Injected as near-zero traffic (PRB ~2%, DL throughput ~0.5 Mbps, drop rate ~0.1%). Detected by a dedicated rule when PRB, throughput, and drop rate are all quiet (`sleeping_cell_pattern`), not by the Isolation Forest. |
 | `pim` | UL noise +12 dBm, drop rate +1.5 points, PRB utilization drawn around 75% (busy, under the congestion threshold). RRC success stays healthy |
 
 ## Design decisions
@@ -61,9 +61,9 @@ These results are from one synthetic 10-seed dataset (shadow mode, `--seeds 1-10
 
 ## Known limitations
 
-- Sleeping cells are never detected. The quiet anomaly score loses to louder faults under the contamination budget.
 - Combined and PIM diagnosis are weak on `llama3.1:8b` (5% and 22.5% on this dataset).
-- Rules only handle single faults. UL noise is checked first, so a cell that also has congestion is labeled `ul_interference`. There is no action template for `combined`, `pim`, or `sleeping_cell`.
+- Rules only handle single faults. UL noise is checked first, so a cell that also has congestion is labeled `ul_interference`. There is no action template for `combined` or `pim`.
+- LLM accuracy can shift a few points across otherwise identical runs because GPU inference is not fully deterministic even at temperature 0.
 - The simulator is synthetic. KPI offsets are hand-written, and a matching action clears the injected fault 85% of the time (`fix_success_rate`).
 
 ## Setup and run
@@ -151,5 +151,5 @@ Escalation counts reset on each run because each firing is a fresh process.
 
 1. Run the loop as an unattended systemd service. Done (`deploy/closed-loop-ran.timer`).
 2. Replace the simulator with a reader for real PM counter exports, keeping the same column names.
-3. Add a sleeping-cell rule so a quiet on-air cell can be detected without spending the Isolation Forest budget.
+3. Add a sleeping-cell rule so a quiet on-air cell can be detected without spending the Isolation Forest budget. Done (`sleeping_cell_pattern` in `closedloop/detect.py`).
 4. Add a digital-twin what-if stage that previews a change before approval.
