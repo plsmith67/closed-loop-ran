@@ -23,15 +23,28 @@ def command_for(fault_type, cell):
 # ---------------- Rules ----------------
 def rule_diagnose(r):
     b = set(r["breaches"])
+    patterns = []
+    if "ul_noise_dbm" in b:
+        patterns.append("noise")
+    if "prb_util_pct" in b:
+        patterns.append("congestion")
+    if "drop_rate_pct" in b and "ul_noise_dbm" not in b:
+        patterns.append("overshoot")
     if "sleeping_cell_pattern" in b:
+        patterns.append("sleeping")
+
+    if len(patterns) >= 2:
+        return ("multiple",
+                f"Multiple fault patterns detected: {patterns}; breaches={r['breaches']}")
+    if "sleeping" in patterns:
         return ("sleeping_cell",
                 f"PRB util {r['prb_util_pct']}% with throughput {r['dl_tput_mbps']} Mbps "
                 f"and drop rate {r['drop_rate_pct']}%; cell on-air but carrying almost no traffic")
-    if "ul_noise_dbm" in b:
+    if "noise" in patterns:
         return "ul_interference", f"UL noise {r['ul_noise_dbm']} dBm with RRC success {r['rrc_success_pct']}%; likely external interference"
-    if "prb_util_pct" in b:
+    if "congestion" in patterns:
         return "congestion", f"PRB util {r['prb_util_pct']}% with DL throughput {r['dl_tput_mbps']} Mbps"
-    if "drop_rate_pct" in b:
+    if "overshoot" in patterns:
         return "overshoot", f"Drop rate {r['drop_rate_pct']}% with normal UL noise; suspect coverage overshoot"
     return "unknown", f"ML-only anomaly (score {r['ml_score']}); no rule matched"
 

@@ -45,7 +45,7 @@ Every cell starts from a healthy KPI draw. `closedloop/simulator.py` then overwr
 
 ## Model evaluation
 
-These results are from one synthetic 10-seed dataset (shadow mode, `--seeds 1-10`).
+These results are from one synthetic 10-seed dataset (shadow mode, `--seeds 1-10`). Timing figures were measured on the Jetson at power mode MODE_30W (30W cap), not the board's maximum performance mode.
 
 | Fault | llama3.2:3b | qwen2.5:7b | llama3.1:8b | mistral:7b |
 |---|---:|---:|---:|---:|
@@ -57,12 +57,11 @@ These results are from one synthetic 10-seed dataset (shadow mode, `--seeds 1-10
 
 `llama3.1:8b` is the chosen model (US-based, Meta). `qwen2.5:7b` was evaluated but excluded for US enterprise use.
 
-`llama3.1:8b` scored 9.1% on `ul_interference` until the prompt gave it contrastive `ul_interference`-vs-`pim` guidance, after which it hit 100%. Combined-fault accuracy dropped on that same prompt change. Prompt changes must be tested against the full fault distribution.
+`llama3.1:8b` scored 9.1% on `ul_interference` until the prompt gave it contrastive `ul_interference`-vs-`pim` guidance, after which it hit 100%. Combined-fault accuracy dropped on that same prompt change, which is why prompt changes must be tested against the full fault distribution. Combined is no longer an open LLM problem: rules now classify multi-pattern cells as `multiple` at 100% in the 10-seed harness and always route them to engineer review. The `combined` row in the table above is the earlier LLM-only comparison.
 
 ## Known limitations
 
-- Combined and PIM diagnosis are weak on `llama3.1:8b` (5% and 22.5% on this dataset).
-- Rules only handle single faults. UL noise is checked first, so a cell that also has congestion is labeled `ul_interference`. There is no action template for `combined` or `pim`.
+- PIM diagnosis is weak on `llama3.1:8b` (~35% in shadow mode on the current harness). There is no action template for `pim`.
 - LLM accuracy can shift a few points across otherwise identical runs because GPU inference is not fully deterministic even at temperature 0.
 - The simulator is synthetic. KPI offsets are hand-written, and a matching action clears the injected fault 85% of the time (`fix_success_rate`).
 
