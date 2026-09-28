@@ -64,8 +64,9 @@ def llm_diagnose(r, cfg):
     breaches = (f"Thresholds breached: {', '.join(r['breaches'])}" if r["breaches"]
                 else "Thresholds breached: none (all KPIs within normal range)")
     resp = requests.post(cfg["url"], timeout=cfg["timeout_s"], json={
-        "model": cfg["model"], "system": SYSTEM, "prompt": f"{kpis}\n{breaches}",
-        "stream": False, "format": "json", "options": {"temperature": 0},
+        "model": cfg["model"], "keep_alive": "30m", "system": SYSTEM,
+        "prompt": f"{kpis}\n{breaches}", "stream": False, "format": "json",
+        "options": {"temperature": 0, "num_ctx": 4096},
     })
     resp.raise_for_status()
     out = json.loads(resp.json()["response"])
