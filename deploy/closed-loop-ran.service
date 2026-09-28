@@ -1,0 +1,12 @@
+[Unit]
+Description=Closed-loop RAN shadow cycle
+After=network-online.target ollama.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/milebase/closed-loop-ran
+ExecStart=/home/milebase/closed-loop-ran/.venv/bin/python main.py --mode shadow --auto --cycles 4
+User=milebase
+TimeoutStartSec=600
+StandardOutput=journal
+StandardError=journal

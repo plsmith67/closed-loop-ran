@@ -122,9 +122,34 @@ OLLAMA_HOST=0.0.0.0 ollama serve
 
 Set `diagnose.llm.url` in `config.yaml` to `http://<jetson-ip>:11434/api/generate`. On a healthy Jetson Orin, GPU use shows up as a `GR3D_FREQ` spike in `tegrastats` during inference.
 
+## Running unattended
+
+On this Jetson, a systemd timer runs a 4-cycle shadow loop (`--mode shadow --auto --cycles 4`) two minutes after boot and 15 minutes after each run. Each firing covers detect, act, verify, and escalate in one process.
+
+Install:
+
+```bash
+bash deploy/install.sh
+```
+
+Check status:
+
+```bash
+systemctl list-timers | grep closed-loop
+journalctl -u closed-loop-ran -n 50 --no-pager
+```
+
+Stop:
+
+```bash
+sudo systemctl disable --now closed-loop-ran.timer
+```
+
+Escalation counts reset on each run because each firing is a fresh process.
+
 ## Roadmap
 
-1. Run the loop as an unattended systemd service.
+1. Run the loop as an unattended systemd service. Done (`deploy/closed-loop-ran.timer`).
 2. Replace the simulator with a reader for real PM counter exports, keeping the same column names.
 3. Add a sleeping-cell rule so a quiet on-air cell can be detected without spending the Isolation Forest budget.
 4. Add a digital-twin what-if stage that previews a change before approval.
