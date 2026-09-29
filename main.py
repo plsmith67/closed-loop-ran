@@ -31,6 +31,16 @@ EXPECTED_LABEL = {
 }
 FAULT_ORDER = list(EXPECTED_LABEL)
 MAX_RETRIES = 2  # one retry after first verify failure, then escalate
+NEVER_AUTO = frozenset({"unknown", "multiple"})
+
+
+def auto_approve_for(fault_type, lc):
+    """Level 4 for listed fault types; --auto overrides to approve all actionable faults."""
+    if lc.get("auto_approve_all"):
+        return True
+    if fault_type in NEVER_AUTO:
+        return False
+    return fault_type in lc.get("auto_approve_faults", [])
 
 
 def empty_scores():
@@ -62,7 +72,11 @@ def run(cfg, quiet=False, show_summary=True, run_suffix=""):
              "shadow_real_agree": 0, "shadow_ml_total": 0, "shadow_ml_agree": 0}
 
     if not quiet:
-        print(f"Diagnosis mode: {cfg['diagnose']['mode']} | auto_approve: {lc['auto_approve']}")
+        if lc.get("auto_approve_all"):
+            gate = "ALL (--auto)"
+        else:
+            gate = lc.get("auto_approve_faults", [])
+        print(f"Diagnosis mode: {cfg['diagnose']['mode']} | auto_approve_faults: {gate}")
     for c in range(1, lc["cycles"] + 1):
         if not quiet:
             print(f"\n=== Cycle {c}  ROP {t:%H:%M} ===")
@@ -146,8 +160,9 @@ def run(cfg, quiet=False, show_summary=True, run_suffix=""):
                 log.write(ts=t, stage="escalate", cell=r["cell"],
                           failure_count=n_fail, **truth, **d)
                 continue
-            ok = True if quiet and lc["auto_approve"] else approve(
-                r["cell"], d["rca"], cmd, lc["auto_approve"])
+            auto = auto_approve_for(d["fault_type"], lc)
+            ok = True if quiet and auto else approve(
+                r["cell"], d["rca"], cmd, auto)
             log.write(ts=t, stage="act", cell=r["cell"], cmd=cmd, approved=ok,
                       **truth, **d)
             if ok:
@@ -227,7 +242,7 @@ if __name__ == "__main__":
     a = p.parse_args()
     cfg = load_config(a.config)
     if a.cycles: cfg["loop"]["cycles"] = a.cycles
-    if a.auto: cfg["loop"]["auto_approve"] = True
+    if a.auto: cfg["loop"]["auto_approve_all"] = True
     if a.mode: cfg["diagnose"]["mode"] = a.mode
     if a.seeds:
         combined = empty_scores()
@@ -235,7 +250,7 @@ if __name__ == "__main__":
         for seed in a.seeds:
             seed_cfg = copy.deepcopy(cfg)
             seed_cfg["simulator"]["seed"] = seed
-            seed_cfg["loop"]["auto_approve"] = True
+            seed_cfg["loop"]["auto_approve_all"] = True
             result = run(seed_cfg, quiet=True, show_summary=False,
                          run_suffix=f"_seed{seed}")
             for fault in FAULT_ORDER:

@@ -2,7 +2,9 @@
 loop:
   cycles: 4
   rop_minutes: 15
-  auto_approve: false        # false = Level 3 (human approves), true = Level 4
+  # Per-fault Level 4 graduation: only these types skip the human gate.
+  # pim stays Level 3 (not listed). unknown/multiple never auto-approve in code.
+  auto_approve_faults: [ul_interference, overshoot, congestion, combined, sleeping_cell]
 
 # ---------- Simulator ----------
 simulator:

@@ -4,7 +4,7 @@ Personal learning prototype using simulated data. Not affiliated with any operat
 
 ## What it is
 
-A closed-loop RAN operations prototype: detect, diagnose, approve, act, verify, escalate. It runs a simulated 24-cell LTE network (8 sites, 3 sectors each) and holds every proposed change behind a human approval gate (TM Forum Autonomous Networks Level 3). That gate can be switched off for unattended runs (Level 4).
+A closed-loop RAN operations prototype: detect, diagnose, approve, act, verify, escalate. It runs a simulated 24-cell LTE network (8 sites, 3 sectors each). Approval is per fault type: proven types can run unattended (TM Forum Level 4) while unproven ones still require a human gate (Level 3). `--auto` overrides the list and auto-approves every actionable fault for quick testing.
 
 ## How it works
 
@@ -38,6 +38,7 @@ Every cell starts from a healthy KPI draw. `closedloop/simulator.py` then overwr
 ## Design decisions
 
 - Rules drive actions. A cell that only the Isolation Forest flags, with no threshold breach, is queued for engineer review and is never auto-actioned.
+- Approval graduates per fault type. `loop.auto_approve_faults` in `config.yaml` lists types that skip the human gate (Level 4). Types not on the list stay Level 3. `pim` is intentionally kept Level 3; `unknown` and `multiple` never auto-approve even if listed. `--auto` overrides the list for the whole run.
 - The LLM only classifies. It never writes commands. The cmedit string always comes from the approved template table in `closedloop/diagnose.py`. Output that is not one of the known fault labels is forced to `unknown`.
 - Shadow mode: rules act, and the LLM label is scored against the simulator's ground truth.
 - Escalation: after 2 failed verifications on the same cell and fault, the loop stops proposing another automated action for that pair and routes it to an engineer.
@@ -47,6 +48,8 @@ Every cell starts from a healthy KPI draw. `closedloop/simulator.py` then overwr
 
 These results are from one synthetic 10-seed dataset (shadow mode, `--seeds 1-10`). Timing figures were measured on the Jetson at power mode MODE_30W (30W cap), not the board's maximum performance mode.
 
+All six injected fault types (`ul_interference`, `overshoot`, `congestion`, `combined`/`multiple`, `sleeping_cell`, `pim`) are now solved deterministically by rules at 100% accuracy on that harness. The LLM is comparison / shadow-mode only; rules drive diagnosis and action selection.
+
 | Fault | llama3.2:3b | qwen2.5:7b | llama3.1:8b | mistral:7b |
 |---|---:|---:|---:|---:|
 | ul_interference | 9.1% | 90.9% | 100% | 81.8% |
@@ -55,13 +58,13 @@ These results are from one synthetic 10-seed dataset (shadow mode, `--seeds 1-10
 | combined | 0% | 100% | 5% | 0% |
 | pim | 0% | 0% | 22.5% | 95% |
 
-`llama3.1:8b` is the chosen model (US-based, Meta). `qwen2.5:7b` was evaluated but excluded for US enterprise use.
+`llama3.1:8b` is the chosen model (US-based, Meta). `qwen2.5:7b` was evaluated but excluded for US enterprise use. The table above is the earlier LLM-only comparison from before the rule coverage was complete.
 
-`llama3.1:8b` scored 9.1% on `ul_interference` until the prompt gave it contrastive `ul_interference`-vs-`pim` guidance, after which it hit 100%. Combined-fault accuracy dropped on that same prompt change, which is why prompt changes must be tested against the full fault distribution. Combined is no longer an open LLM problem: rules now classify multi-pattern cells as `multiple` at 100% in the 10-seed harness and always route them to engineer review. The `combined` row in the table above is the earlier LLM-only comparison.
+`llama3.1:8b` scored 9.1% on `ul_interference` until the prompt gave it contrastive `ul_interference`-vs-`pim` guidance, after which it hit 100%. Combined-fault accuracy dropped on that same prompt change, which is why prompt changes must be tested against the full fault distribution. After the stronger simulator `pim` drop-rate offset (+2.0), LLM `pim` accuracy in shadow mode fell to 0% (likely reading more like overshoot); that does not affect the loop, because rules own diagnosis.
 
 ## Known limitations
 
-- PIM diagnosis is weak on `llama3.1:8b` (~35% in shadow mode on the current harness). There is no action template for `pim`.
+- There is no action template for `pim`. Rules detect it and queue it for engineer review (physical inspection), and it is intentionally left off `auto_approve_faults`.
 - LLM accuracy can shift a few points across otherwise identical runs because GPU inference is not fully deterministic even at temperature 0.
 - The simulator is synthetic. KPI offsets are hand-written, and a matching action clears the injected fault 85% of the time (`fix_success_rate`).
 
@@ -93,14 +96,16 @@ python main.py
 
 | Command | What it does |
 |---|---|
-| `python main.py` | Rules diagnose. You approve each action (Level 3). Default is 4 cycles. |
-| `python main.py --auto` | Human gate off (Level 4). |
+| `python main.py` | Rules diagnose. Fault types in `auto_approve_faults` skip approval (Level 4); others prompt (Level 3). Default is 4 cycles. |
+| `python main.py --auto` | Override: auto-approve every actionable fault for this run. |
 | `python main.py --mode shadow` | Rules act. The LLM is scored against ground truth. |
 | `python main.py --mode llm` | The LLM diagnoses. Rules are the fallback if Ollama is unavailable. |
 | `python main.py --cycles N` | Run N ROPs. |
 | `python main.py --mode shadow --seeds 1-10` | Quiet multi-seed harness. Prints a combined table and writes `logs/combined_scoring_<timestamp>.csv`. |
 
 `--auto` and `--mode` can be combined. `--seeds` always auto-approves and suppresses per-cycle output. Every run writes an audit trail to `logs/run_<timestamp>.jsonl`.
+
+Approval policy mirrors the TM Forum idea of graduating fault types from Level 3 to Level 4 as accuracy is proven. Today `ul_interference`, `overshoot`, `congestion`, `combined`, and `sleeping_cell` are listed; `pim` is intentionally left out.
 
 ### Ollama
 
