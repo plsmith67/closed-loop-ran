@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily cleanup of closed-loop RAN audit logs older than 14 days
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

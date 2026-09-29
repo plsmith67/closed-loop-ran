@@ -149,7 +149,7 @@ Stop:
 sudo systemctl disable --now closed-loop-ran.timer
 ```
 
-Escalation counts reset on each run because each firing is a fresh process.
+Escalation counts reset on each run because each firing is a fresh process. A second timer deletes `logs/*.jsonl` older than 14 days once a day (`closed-loop-ran-cleanup.timer`).
 
 ## Roadmap
 

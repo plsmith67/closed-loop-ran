@@ -1,0 +1,7 @@
+[Unit]
+Description=Delete closed-loop RAN audit logs older than 14 days
+
+[Service]
+Type=oneshot
+User=milebase
+ExecStart=/usr/bin/find /home/milebase/closed-loop-ran/logs -name "*.jsonl" -mtime +14 -delete
