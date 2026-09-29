@@ -1,0 +1,16 @@
+[Unit]
+Description=Closed-loop RAN read-only web dashboard
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/milebase/closed-loop-ran
+ExecStart=/home/milebase/closed-loop-ran/.venv/bin/uvicorn dashboard:app --host 0.0.0.0 --port 8000
+User=milebase
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

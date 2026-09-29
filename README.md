@@ -151,6 +151,21 @@ sudo systemctl disable --now closed-loop-ran.timer
 
 Escalation counts reset on each run because each firing is a fresh process. A second timer deletes `logs/*.jsonl` older than 14 days once a day (`closed-loop-ran-cleanup.timer`).
 
+## Dashboard
+
+A read-only FastAPI dashboard (`dashboard.py`) reads the same audit logs the loop already writes — no separate database. It shows cell status, recent actions, and the current `auto_approve_faults` policy, and refreshes every 15 seconds in the browser.
+
+Install (also covered by `bash deploy/install.sh`):
+
+```bash
+pip install -r requirements.txt
+sudo cp deploy/closed-loop-ran-dashboard.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now closed-loop-ran-dashboard.service
+```
+
+Open `http://<jetson-ip>:8000` from a browser on the same network (served on `0.0.0.0:8000`). Check status with `systemctl status closed-loop-ran-dashboard` or `journalctl -u closed-loop-ran-dashboard -n 50 --no-pager`.
+
 ## Roadmap
 
 1. Run the loop as an unattended systemd service. Done (`deploy/closed-loop-ran.timer`).
