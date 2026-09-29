@@ -41,7 +41,7 @@ class NetworkSimulator:
                 r["dl_tput_mbps"] = max(0, np.random.normal(0.5, 0.3))
                 r["drop_rate_pct"] = max(0, np.random.normal(0.1, 0.05))
             elif fault == "pim":
-                r["ul_noise_dbm"] += 12; r["drop_rate_pct"] += 1.5
+                r["ul_noise_dbm"] += 12; r["drop_rate_pct"] += 2.0
                 r["prb_util_pct"] = np.random.normal(75, 3)
             rows.append(r)
         return pd.DataFrame(rows).round(2)

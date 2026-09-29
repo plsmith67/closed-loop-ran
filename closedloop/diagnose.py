@@ -23,6 +23,15 @@ def command_for(fault_type, cell):
 # ---------------- Rules ----------------
 def rule_diagnose(r):
     b = set(r["breaches"])
+    # PIM before generic noise: elevated UL noise + drop, normal RRC, not congested.
+    pim_match = ("ul_noise_dbm" in b and "drop_rate_pct" in b
+                 and "rrc_success_pct" not in b and "prb_util_pct" not in b)
+    if pim_match:
+        return ("pim",
+                f"UL noise {r['ul_noise_dbm']} dBm with drop rate {r['drop_rate_pct']}% "
+                f"but normal RRC success {r['rrc_success_pct']}% and PRB util {r['prb_util_pct']}%; "
+                f"suspect PIM (retainability issue, not access)")
+
     patterns = []
     if "ul_noise_dbm" in b:
         patterns.append("noise")
