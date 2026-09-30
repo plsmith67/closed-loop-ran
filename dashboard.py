@@ -6,12 +6,15 @@ Does not modify the loop, simulator, or diagnosis code.
 from __future__ import annotations
 
 import json
+import os
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import HTMLResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 ROOT = Path(__file__).resolve().parent
 LOG_DIR = ROOT / "logs"
@@ -21,6 +24,32 @@ KNOWN_FAULTS = [
     "ul_interference", "overshoot", "congestion", "combined",
     "sleeping_cell", "pim", "multiple", "unknown",
 ]
+
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD")
+if not DASHBOARD_PASSWORD:
+    raise RuntimeError(
+        "DASHBOARD_PASSWORD is not set. Add it to .env "
+        "(see .env.example) and ensure the systemd unit loads "
+        "EnvironmentFile=/home/milebase/closed-loop-ran/.env"
+    )
+
+security = HTTPBasic()
+
+
+def require_password(credentials: HTTPBasicCredentials = Depends(security)):
+    """Username is ignored; only the password must match DASHBOARD_PASSWORD."""
+    try:
+        ok = secrets.compare_digest(credentials.password, DASHBOARD_PASSWORD)
+    except (TypeError, ValueError):
+        ok = False
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return True
+
 
 app = FastAPI(title="Closed-Loop RAN Dashboard", docs_url=None, redoc_url=None)
 
@@ -204,7 +233,7 @@ def build_status():
 
 
 @app.get("/api/status")
-def api_status():
+def api_status(_: bool = Depends(require_password)):
     return build_status()
 
 
@@ -433,5 +462,5 @@ setInterval(refresh, 15000);
 
 
 @app.get("/", response_class=HTMLResponse)
-def index():
+def index(_: bool = Depends(require_password)):
     return DASHBOARD_HTML

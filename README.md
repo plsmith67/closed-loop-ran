@@ -155,10 +155,13 @@ Escalation counts reset on each run because each firing is a fresh process. A se
 
 A read-only FastAPI dashboard (`dashboard.py`) reads the same audit logs the loop already writes — no separate database. It shows cell status, recent actions, and the current `auto_approve_faults` policy, and refreshes every 15 seconds in the browser.
 
+Access requires a password set via `DASHBOARD_PASSWORD` in `.env` (see `.env.example`). The browser prompts for HTTP Basic auth: username can be anything; only the password matters. When sharing a Tailscale Funnel link with someone outside your network, they will see that login prompt before the page loads.
+
 Install (also covered by `bash deploy/install.sh`):
 
 ```bash
 pip install -r requirements.txt
+cp .env.example .env   # then set DASHBOARD_PASSWORD to a strong secret
 sudo cp deploy/closed-loop-ran-dashboard.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now closed-loop-ran-dashboard.service
