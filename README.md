@@ -166,6 +166,8 @@ sudo systemctl enable --now closed-loop-ran-dashboard.service
 
 Open `http://<jetson-ip>:8000` from a browser on the same network (served on `0.0.0.0:8000`). Check status with `systemctl status closed-loop-ran-dashboard` or `journalctl -u closed-loop-ran-dashboard -n 50 --no-pager`.
 
+Once Tailscale is installed on the Jetson (`curl -fsSL https://tailscale.com/install.sh | sh` then `sudo tailscale up`), the dashboard can also be reached remotely from any device on the same tailnet using the Jetson's Tailscale IP instead of the local `192.168.x.x` address: run `tailscale ip -4` on the Jetson, then open `http://<tailscale-ip>:8000`.
+
 ## Roadmap
 
 1. Run the loop as an unattended systemd service. Done (`deploy/closed-loop-ran.timer`).
