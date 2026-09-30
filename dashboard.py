@@ -245,17 +245,21 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <title>Closed-Loop RAN Dashboard</title>
 <style>
   :root {
-    --bg: #f4f5f2;
-    --panel: #ffffff;
-    --ink: #1a1d18;
-    --muted: #5c6358;
-    --line: #d5d9d0;
-    --green: #2f6b3a;
-    --green-bg: #dcefdc;
-    --yellow: #8a6a12;
-    --yellow-bg: #f5ecc0;
-    --red: #8b2e2e;
-    --red-bg: #f3d6d6;
+    --bg: #0d1117;
+    --panel: #161b22;
+    --ink: #e6edf3;
+    --muted: #8b949e;
+    --line: #30363d;
+    --green: #3fb950;
+    --green-bg: #12261a;
+    --green-border: #238636;
+    --yellow: #d29922;
+    --yellow-bg: #2a2111;
+    --yellow-border: #9e6a03;
+    --red: #f85149;
+    --red-bg: #2d1214;
+    --red-border: #da3633;
+    --row-alt: #1c2128;
   }
   * { box-sizing: border-box; }
   body {
@@ -275,6 +279,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     font-size: 1.35rem;
     font-weight: 650;
     letter-spacing: -0.02em;
+    color: var(--ink);
   }
   header .meta {
     color: var(--muted);
@@ -283,6 +288,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     flex-wrap: wrap;
     gap: 1rem;
   }
+  header .meta strong { color: var(--ink); font-weight: 600; }
   main {
     padding: 1.25rem 1.5rem 2rem;
     display: grid;
@@ -298,6 +304,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     margin: 0 0 0.75rem;
     font-size: 1rem;
     font-weight: 600;
+    color: var(--ink);
   }
   .grid {
     display: grid;
@@ -311,16 +318,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     min-height: 3.6rem;
   }
   .cell .name { font-weight: 600; font-size: 0.82rem; }
-  .cell .fault { font-size: 0.72rem; margin-top: 0.2rem; word-break: break-word; }
-  .cell.healthy { background: var(--green-bg); color: var(--green); border-color: #b7d8b9; }
+  .cell .fault { font-size: 0.72rem; margin-top: 0.2rem; word-break: break-word; opacity: 0.92; }
+  .cell.healthy { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
   .cell.faulted, .cell.pending_review, .cell.awaiting_verify, .cell.unresolved {
-    background: var(--yellow-bg); color: var(--yellow); border-color: #e2d08a;
+    background: var(--yellow-bg); color: var(--yellow); border-color: var(--yellow-border);
   }
-  .cell.escalated { background: var(--red-bg); color: var(--red); border-color: #e0b0b0; }
+  .cell.escalated { background: var(--red-bg); color: var(--red); border-color: var(--red-border); }
   table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.88rem;
+    background: var(--panel);
   }
   th, td {
     text-align: left;
@@ -329,7 +337,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     vertical-align: top;
   }
   th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
-  td.action { max-width: 28rem; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.78rem; }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  td.action { max-width: 28rem; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.78rem; color: var(--muted); }
+  code { color: var(--ink); }
   .pill {
     display: inline-block;
     padding: 0.1rem 0.45rem;
@@ -337,19 +347,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     font-size: 0.75rem;
     font-weight: 600;
   }
-  .pill.resolved, .pill.healthy { background: var(--green-bg); color: var(--green); }
+  .pill.resolved, .pill.healthy { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
   .pill.pending, .pill.unresolved, .pill.faulted, .pill.pending_review, .pill.awaiting_verify, .pill.rejected {
-    background: var(--yellow-bg); color: var(--yellow);
+    background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border);
   }
-  .pill.escalated { background: var(--red-bg); color: var(--red); }
+  .pill.escalated { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
   .policy {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
   }
   @media (max-width: 700px) { .policy { grid-template-columns: 1fr; } }
+  .policy h3 { color: var(--muted); }
   .policy ul { margin: 0; padding-left: 1.1rem; }
-  .policy li { margin: 0.2rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; }
+  .policy li { margin: 0.2rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; color: var(--ink); }
   .err { color: var(--red); padding: 1rem; }
   .note { color: var(--muted); font-size: 0.82rem; margin: 0 0 0.75rem; }
 </style>
