@@ -64,6 +64,14 @@ def expected_cells(cfg):
     return [f"SITE{s:03d}_{sec}" for s in range(1, sites + 1) for sec in "ABC"]
 
 
+def cells_for_run(events, cfg):
+    """Prefer the run's meta cell inventory (real PM labels) over the simulator template."""
+    for ev in events:
+        if ev.get("stage") == "meta" and ev.get("cells"):
+            return list(ev["cells"])
+    return expected_cells(cfg)
+
+
 def list_run_logs():
     if not LOG_DIR.is_dir():
         return []
@@ -185,10 +193,10 @@ def build_recent_actions(events, limit=20):
 
 def build_status():
     cfg = load_config()
-    cells = expected_cells(cfg)
     auto = list(cfg.get("loop", {}).get("auto_approve_faults", []) or [])
     logs = list_run_logs()
     if not logs:
+        cells = expected_cells(cfg)
         return {
             "cells": [{"cell": c, "status": "healthy", "fault_type": None} for c in cells],
             "recent_actions": [],
@@ -203,6 +211,7 @@ def build_status():
     latest = logs[-1]
     earliest = logs[0]
     events = read_events(latest)
+    cells = cells_for_run(events, cfg)
     now = datetime.now(timezone.utc)
     first_ts = parse_run_timestamp(earliest)
     last_ts = parse_run_timestamp(latest)

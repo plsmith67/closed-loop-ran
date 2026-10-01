@@ -11,6 +11,7 @@ import argparse
 import copy
 import csv
 import os
+import time
 from datetime import datetime, timedelta
 
 from closedloop.config import load_config
@@ -57,7 +58,8 @@ def print_scoring_table(scores):
         print(f"  {fault:16s} {row['detected']:8d} {row['rules_correct']:13d} {row['llm_correct']:11d}")
 
 
-def run(cfg, quiet=False, show_summary=True, run_suffix="", source="simulator", pm_file=None):
+def run(cfg, quiet=False, show_summary=True, run_suffix="", source="simulator",
+        pm_file=None, pace_seconds=0):
     lc, th = cfg["loop"], cfg["detect"]["thresholds"]
     if source == "real":
         if not pm_file:
@@ -67,9 +69,15 @@ def run(cfg, quiet=False, show_summary=True, run_suffix="", source="simulator", 
     else:
         sim = NetworkSimulator(cfg["simulator"])
         t = datetime.now().replace(second=0, microsecond=0)
+    # Pacing is demo-only for real PM replay; ignored for the simulator.
+    pacing = source == "real" and pace_seconds > 0
     now = datetime.now()
     run_id = now.strftime("%Y%m%d_%H%M%S") + run_suffix
     log = AuditLog(cfg["output"]["log_dir"], run_id)
+    # Let the dashboard discover the cell inventory for this run (real PM
+    # uses SITE001… labels, not the simulator's SITE001_A sector names).
+    log.write(ts=t, stage="meta", source=source, cells=list(sim.cells),
+              n_cells=len(sim.cells), pace_seconds=pace_seconds if pacing else 0)
     pending = {}
     fail_counts = {}  # (cell, fault_type) -> consecutive verify failures
     scores = empty_scores()
@@ -83,15 +91,19 @@ def run(cfg, quiet=False, show_summary=True, run_suffix="", source="simulator", 
             gate = "ALL (--auto)"
         else:
             gate = lc.get("auto_approve_faults", [])
+        pace_note = f" | pace: {pace_seconds}s" if pacing else ""
         print(f"Diagnosis mode: {cfg['diagnose']['mode']} | auto_approve_faults: {gate}"
-              f" | source: {source}")
+              f" | source: {source}{pace_note}")
     for c in range(1, lc["cycles"] + 1):
+        df = sim.collect(t)
         if not quiet:
-            if source == "real":
+            if pacing:
+                print(f"\n=== Replaying real production PM data: Cycle {c} — "
+                      f"ROP {t:%Y-%m-%d %H:%M} ({len(df)} cells) ===")
+            elif source == "real":
                 print(f"\n=== Cycle {c}  ROP {t:%Y-%m-%d %H:%M} ===")
             else:
                 print(f"\n=== Cycle {c}  ROP {t:%H:%M} ===")
-        df = sim.collect(t)
 
         # VERIFY actions taken last cycle
         for cell, (fault, prev, truth) in list(pending.items()):
@@ -190,6 +202,12 @@ def run(cfg, quiet=False, show_summary=True, run_suffix="", source="simulator", 
         else:
             t += timedelta(minutes=lc["rop_minutes"])
 
+        # Pause between cycles so a live viewer can follow detect → act → verify.
+        if pacing and c < lc["cycles"]:
+            if not quiet:
+                print(f"  … pacing {pace_seconds}s before next cycle …")
+            time.sleep(pace_seconds)
+
     log.close()
     if show_summary:
         print("\n=== Summary ===")
@@ -260,6 +278,9 @@ if __name__ == "__main__":
     p.add_argument("--seeds", type=parse_seed_range, metavar="START-END")
     p.add_argument("--source", choices=["simulator", "real"], default="simulator")
     p.add_argument("--pm-file", help="Scrubbed PM CSV (required with --source real)")
+    p.add_argument("--pace-seconds", type=float, default=0,
+                   help="Seconds to sleep between cycles (real-data mode only; "
+                        "0 = no delay). Useful for live demos.")
     a = p.parse_args()
     cfg = load_config(a.config)
     if a.cycles: cfg["loop"]["cycles"] = a.cycles
@@ -269,6 +290,8 @@ if __name__ == "__main__":
         p.error("--source real requires --pm-file <path to scrubbed CSV>")
     if a.seeds and a.source == "real":
         p.error("--seeds is only supported with the simulator source")
+    if a.pace_seconds < 0:
+        p.error("--pace-seconds must be >= 0")
     if a.seeds:
         combined = empty_scores()
         combined_missed = {fault: 0 for fault in FAULT_ORDER if fault != "none"}
@@ -285,4 +308,5 @@ if __name__ == "__main__":
                 combined_missed[fault] += result["missed"][fault]
         print_and_save_combined(combined, combined_missed, cfg["output"]["log_dir"])
     else:
-        run(cfg, quiet=a.quiet, source=a.source, pm_file=a.pm_file)
+        run(cfg, quiet=a.quiet, source=a.source, pm_file=a.pm_file,
+            pace_seconds=a.pace_seconds)
