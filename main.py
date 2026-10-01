@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 
 from closedloop.config import load_config
 from closedloop.simulator import NetworkSimulator
+from closedloop.pm_reader import PMDataReader
 from closedloop.detect import detect
 from closedloop.diagnose import diagnose, command_for, rule_diagnose
 from closedloop.act import AuditLog, approve, execute
@@ -56,12 +57,18 @@ def print_scoring_table(scores):
         print(f"  {fault:16s} {row['detected']:8d} {row['rules_correct']:13d} {row['llm_correct']:11d}")
 
 
-def run(cfg, quiet=False, show_summary=True, run_suffix=""):
+def run(cfg, quiet=False, show_summary=True, run_suffix="", source="simulator", pm_file=None):
     lc, th = cfg["loop"], cfg["detect"]["thresholds"]
-    sim = NetworkSimulator(cfg["simulator"])
+    if source == "real":
+        if not pm_file:
+            raise ValueError("--source real requires --pm-file <scrubbed.csv>")
+        sim = PMDataReader(pm_file)
+        t = sim.first_rop()
+    else:
+        sim = NetworkSimulator(cfg["simulator"])
+        t = datetime.now().replace(second=0, microsecond=0)
     now = datetime.now()
     run_id = now.strftime("%Y%m%d_%H%M%S") + run_suffix
-    t = now.replace(second=0, microsecond=0)
     log = AuditLog(cfg["output"]["log_dir"], run_id)
     pending = {}
     fail_counts = {}  # (cell, fault_type) -> consecutive verify failures
@@ -76,10 +83,14 @@ def run(cfg, quiet=False, show_summary=True, run_suffix=""):
             gate = "ALL (--auto)"
         else:
             gate = lc.get("auto_approve_faults", [])
-        print(f"Diagnosis mode: {cfg['diagnose']['mode']} | auto_approve_faults: {gate}")
+        print(f"Diagnosis mode: {cfg['diagnose']['mode']} | auto_approve_faults: {gate}"
+              f" | source: {source}")
     for c in range(1, lc["cycles"] + 1):
         if not quiet:
-            print(f"\n=== Cycle {c}  ROP {t:%H:%M} ===")
+            if source == "real":
+                print(f"\n=== Cycle {c}  ROP {t:%Y-%m-%d %H:%M} ===")
+            else:
+                print(f"\n=== Cycle {c}  ROP {t:%H:%M} ===")
         df = sim.collect(t)
 
         # VERIFY actions taken last cycle
@@ -169,7 +180,15 @@ def run(cfg, quiet=False, show_summary=True, run_suffix=""):
                 stats["actions"] += 1
                 execute(sim, r["cell"], d["fault_type"], cmd)
                 pending[r["cell"]] = (d["fault_type"], r, truth)
-        t += timedelta(minutes=lc["rop_minutes"])
+        if source == "real":
+            try:
+                t = sim.next_rop(t)
+            except ValueError as exc:
+                if not quiet:
+                    print(f"\n  Stopping early: {exc}")
+                break
+        else:
+            t += timedelta(minutes=lc["rop_minutes"])
 
     log.close()
     if show_summary:
@@ -239,11 +258,17 @@ if __name__ == "__main__":
     p.add_argument("--mode", choices=["rules", "llm", "shadow"])
     p.add_argument("--quiet", action="store_true")
     p.add_argument("--seeds", type=parse_seed_range, metavar="START-END")
+    p.add_argument("--source", choices=["simulator", "real"], default="simulator")
+    p.add_argument("--pm-file", help="Scrubbed PM CSV (required with --source real)")
     a = p.parse_args()
     cfg = load_config(a.config)
     if a.cycles: cfg["loop"]["cycles"] = a.cycles
     if a.auto: cfg["loop"]["auto_approve_all"] = True
     if a.mode: cfg["diagnose"]["mode"] = a.mode
+    if a.source == "real" and not a.pm_file:
+        p.error("--source real requires --pm-file <path to scrubbed CSV>")
+    if a.seeds and a.source == "real":
+        p.error("--seeds is only supported with the simulator source")
     if a.seeds:
         combined = empty_scores()
         combined_missed = {fault: 0 for fault in FAULT_ORDER if fault != "none"}
@@ -260,4 +285,4 @@ if __name__ == "__main__":
                 combined_missed[fault] += result["missed"][fault]
         print_and_save_combined(combined, combined_missed, cfg["output"]["log_dir"])
     else:
-        run(cfg, quiet=a.quiet)
+        run(cfg, quiet=a.quiet, source=a.source, pm_file=a.pm_file)

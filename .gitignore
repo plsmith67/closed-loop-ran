@@ -5,3 +5,8 @@ venv/
 logs/
 *.jsonl
 .env
+# Real PM exports and scrub artifacts (never commit identifying data)
+data/
+pm_data_id_map.csv
+*Performance_KPIs*.csv
+eNodeB*.csv
