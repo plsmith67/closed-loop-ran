@@ -23,6 +23,12 @@ def command_for(fault_type, cell):
 # ---------------- Rules ----------------
 def rule_diagnose(r):
     b = set(r["breaches"])
+    # Currently unreachable: detect.py no longer emits cell_down_pattern pending
+    # a higher-resolution availability signal (see README Real data mode).
+    if "cell_down_pattern" in b:
+        return ("sleeping_cell",
+                f"Cell availability {r['cell_availability_pct']}% — "
+                f"radio reporting down/degraded, not a traffic issue")
     # PIM before generic noise: elevated UL noise + drop, normal RRC, not congested.
     pim_match = ("ul_noise_dbm" in b and "drop_rate_pct" in b
                  and "rrc_success_pct" not in b and "prb_util_pct" not in b)

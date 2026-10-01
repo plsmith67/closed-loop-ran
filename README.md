@@ -171,9 +171,33 @@ Open `http://<jetson-ip>:8000` from a browser on the same network (served on `0.
 
 Once Tailscale is installed on the Jetson (`curl -fsSL https://tailscale.com/install.sh | sh` then `sudo tailscale up`), the dashboard can also be reached remotely from any device on the same tailnet using the Jetson's Tailscale IP instead of the local `192.168.x.x` address: run `tailscale ip -4` on the Jetson, then open `http://<tailscale-ip>:8000`.
 
+## Real data mode
+
+Default runs still use the synthetic simulator. To replay scrubbed Ericsson eNodeB PM:
+
+1. Scrub a raw export (path is an argument — never hardcode or commit the raw file):
+
+```bash
+python scripts/scrub_pm_data.py /path/to/eNodeB_Performance_KPIs.csv
+```
+
+This writes `data/pm_sample_scrubbed.csv` (generic `SITE001`… cell labels, identifying `ObjectId` / `SubNetwork*` columns removed) and a private `data/pm_data_id_map.csv` (do not commit).
+
+2. Run the loop against the scrubbed file:
+
+```bash
+python main.py --source real --pm-file data/pm_sample_scrubbed.csv --cycles 4
+```
+
+Optional: `--auto`, `--mode shadow`, etc. work as usual. The reader advances one calendar ROP per cycle from the file (daily in the current export). `apply()` is a no-op with a log line because historical rows cannot be remediated.
+
+**Sleeping / dead cells on real FWA data (open gap):** busy-hour PRB utilization on this fixed-wireless network is often only ~3%, and some cells legitimately have zero subscribers, so the synthetic traffic-based `sleeping_cell_pattern` is unusable on real data. We tried an availability-based rule instead (`Cell Availability (%)` below 90 → `cell_down_pattern`). Against real historical PM, that metric’s low sample resolution produced noisy values like 33.33% / 66.67% / 0.0% and triggered on the large majority of cells — clearly more sensitive to sampling noise than to real outages. The availability check is therefore **disabled** for real-data mode; the PRB-based rule remains unchanged for the synthetic simulator (no availability column). Real-data sleeping-cell detection is a known open gap. What would fix it: a higher-resolution availability counter (e.g. hourly rather than a handful of daily samples), or multi-day persistence (only flag if availability stays low across several consecutive days).
+
+**Honest limitation:** `prb_util_pct` is currently inferred by normalizing downlink traffic volume to 0–100 against the file max. It is a placeholder, not a real PRB counter, and should be replaced once a PRB-inclusive export is available. `cell_availability_pct` is still scrubbed into the file for analysis but is not used by any active rule. Other KPI columns come from the export under closed-loop names (`rrc_success_pct`, `drop_rate_pct`, `ul_noise_dbm`, `dl_tput_mbps`).
+
 ## Roadmap
 
 1. Run the loop as an unattended systemd service. Done (`deploy/closed-loop-ran.timer`).
-2. Replace the simulator with a reader for real PM counter exports, keeping the same column names.
+2. Replace the simulator with a reader for real PM counter exports, keeping the same column names. Done (`closedloop/pm_reader.py`, `--source real`).
 3. Add a sleeping-cell rule so a quiet on-air cell can be detected without spending the Isolation Forest budget. Done (`sleeping_cell_pattern` in `closedloop/detect.py`).
 4. Add a digital-twin what-if stage that previews a change before approval.
