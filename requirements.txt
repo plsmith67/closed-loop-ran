@@ -3,5 +3,3 @@ pandas
 scikit-learn
 pyyaml
 requests
-fastapi
-uvicorn

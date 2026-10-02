@@ -75,7 +75,7 @@ def run(cfg, quiet=False, show_summary=True, run_suffix="", source="simulator",
     now = datetime.now()
     run_id = now.strftime("%Y%m%d_%H%M%S") + run_suffix
     log = AuditLog(cfg["output"]["log_dir"], run_id)
-    # Let the dashboard discover the cell inventory for this run (real PM
+    # Record cell inventory for this run in the audit log (real PM
     # uses SITE001… labels, not the simulator's SITE001_A sector names).
     log.write(ts=t, stage="meta", source=source, cells=list(sim.cells),
               n_cells=len(sim.cells), pace_seconds=pace_seconds if pacing else 0)

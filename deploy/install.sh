@@ -6,8 +6,6 @@ sudo cp "$dir/closed-loop-ran.service" /etc/systemd/system/
 sudo cp "$dir/closed-loop-ran.timer" /etc/systemd/system/
 sudo cp "$dir/closed-loop-ran-cleanup.service" /etc/systemd/system/
 sudo cp "$dir/closed-loop-ran-cleanup.timer" /etc/systemd/system/
-sudo cp "$dir/closed-loop-ran-dashboard.service" /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now closed-loop-ran.timer
 sudo systemctl enable --now closed-loop-ran-cleanup.timer
-sudo systemctl enable --now closed-loop-ran-dashboard.service

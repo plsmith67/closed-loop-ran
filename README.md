@@ -6,7 +6,9 @@ Personal learning prototype. Not affiliated with any operator or vendor.
 
 A closed-loop RAN operations prototype: detect, diagnose, approve, act, verify, escalate. Default runs use a simulated 24-cell LTE network (8 sites, 3 sectors each). The same loop can also replay scrubbed real Ericsson eNodeB PM (`--source real`).
 
-Approval is per fault type: proven types can run unattended (TM Forum Level 4) while unproven ones still require a human gate (Level 3). `--auto` overrides the list and auto-approves every actionable fault for quick testing. Rules drive actions; a local LLM can run alongside in shadow mode for comparison. A password-protected dark-theme dashboard reads the audit logs, and systemd timers can run the loop (and clean old logs) unattended on a Jetson.
+Approval is per fault type: proven types can run unattended (TM Forum Level 4) while unproven ones still require a human gate (Level 3). `--auto` overrides the list and auto-approves every actionable fault for quick testing. Rules drive actions; a local LLM can run alongside in shadow mode for comparison. Systemd timers can run the loop (and clean old logs) unattended on a Jetson.
+
+**Interface:** this is a terminal- and audit-log-driven tool. Output is what you see in the console plus `logs/run_*.jsonl`. A web dashboard was built earlier and then removed — a fixed-seed simulator and a static historical export give a live status UI nothing new to ever show, so the terminal and audit log remain the authoritative interface.
 
 ## How it works
 
@@ -69,7 +71,7 @@ The table below is the earlier LLM-only bake-off (before rule coverage was compl
 
 ## Setup and run
 
-Dependencies are in `requirements.txt`: `numpy`, `pandas`, `scikit-learn`, `pyyaml`, `requests`, `fastapi`, `uvicorn`.
+Dependencies are in `requirements.txt`: `numpy`, `pandas`, `scikit-learn`, `pyyaml`, `requests`.
 
 ### Windows
 
@@ -133,7 +135,7 @@ Two systemd timers ship under `deploy/`:
 1. **Loop timer** (`closed-loop-ran.timer`) — runs a 4-cycle shadow loop (`--mode shadow --auto --cycles 4`) two minutes after boot and 15 minutes after each run. Each firing covers detect, act, verify, and escalate in one process. Escalation counts reset on each run because each firing is a fresh process.
 2. **Log cleanup timer** (`closed-loop-ran-cleanup.timer`) — once a day, deletes `logs/*.jsonl` older than 14 days.
 
-Install both (plus the dashboard unit):
+Install both:
 
 ```bash
 bash deploy/install.sh
@@ -152,30 +154,6 @@ Stop the loop timer:
 ```bash
 sudo systemctl disable --now closed-loop-ran.timer
 ```
-
-## Dashboard
-
-A read-only FastAPI dashboard (`dashboard.py`) reads the same audit logs the loop already writes — no separate database. It uses a dark theme suited to demos, shows cell status, recent actions, and the current `auto_approve_faults` policy, and refreshes every 15 seconds in the browser.
-
-Access requires a password set via `DASHBOARD_PASSWORD` in `.env` (see `.env.example`). The browser prompts for HTTP Basic auth: username can be anything; only the password matters.
-
-Install (also covered by `bash deploy/install.sh`):
-
-```bash
-pip install -r requirements.txt
-cp .env.example .env   # then set DASHBOARD_PASSWORD to a strong secret
-sudo cp deploy/closed-loop-ran-dashboard.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now closed-loop-ran-dashboard.service
-```
-
-Reach it three ways:
-
-- **Local network** — open `http://<jetson-lan-ip>:8000` (served on `0.0.0.0:8000`).
-- **Tailscale** — after `curl -fsSL https://tailscale.com/install.sh | sh` and `sudo tailscale up`, open `http://<tailscale-ip>:8000` from any device on the same tailnet (`tailscale ip -4` on the Jetson).
-- **Tailscale Funnel** — for sharing outside the tailnet. The remote browser will hit the same Basic auth prompt before the page loads.
-
-Check status with `systemctl status closed-loop-ran-dashboard` or `journalctl -u closed-loop-ran-dashboard -n 50 --no-pager`.
 
 ## Real data mode
 
@@ -223,7 +201,7 @@ Before approval, the loop runs a lightweight what-if prediction (`closedloop/twi
 1. Run the loop as an unattended systemd service — Done (`deploy/closed-loop-ran.timer`), plus daily log cleanup (`closed-loop-ran-cleanup.timer`).
 2. Replace the simulator with a reader for real PM counter exports, keeping the same column names — Done (`closedloop/pm_reader.py`, `--source real`).
 3. Add a sleeping-cell rule so a quiet on-air cell can be detected without spending the Isolation Forest budget — Done for the synthetic simulator (`sleeping_cell_pattern` in `closedloop/detect.py`).
-4. Read-only status dashboard with password protection and dark theme — Done (`dashboard.py`, Tailscale / Funnel reachable).
+4. Dashboard — built, then removed; a fixed-seed simulator and a static historical export give it nothing new to ever show, so the terminal output and audit log (`logs/*.jsonl`) are the authoritative interface.
 5. Digital-twin what-if stage before approval — Done (`closedloop/twin.py`; heuristic only).
 
 **Open**
