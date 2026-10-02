@@ -18,6 +18,7 @@ Each cycle is one 15-minute reporting period (ROP). `main.py` walks the loop:
 | Detect | Flag cells that breach a threshold, or that the Isolation Forest marks as anomalous | `closedloop/detect.py` |
 | Diagnose | Name the fault with rules, a local LLM, or both | `closedloop/diagnose.py` |
 | Decide | Look up the cmedit command for that fault | `closedloop/diagnose.py` |
+| Twin (what-if) | Heuristic prediction of the primary KPI after the proposed fix; warn if unlikely to clear | `closedloop/twin.py` |
 | Approve and act | Ask for approval (or auto-approve), then apply the change | `closedloop/act.py` |
 | Verify | On the next ROP, check whether the fault KPI recovered and the cell is clean | `closedloop/verify.py` |
 | Escalate | After repeated failed verifications, stop retrying and route the cell to an engineer | `main.py` |
@@ -200,6 +201,12 @@ Optional: `--auto`, `--mode shadow`, etc. work as usual. `--seeds` does not (sim
 
 **PRB placeholder:** `prb_util_pct` is currently inferred by normalizing downlink traffic volume to 0–100 against the file max. It is a placeholder, not a real PRB counter, and should be replaced once a PRB-inclusive export is available. `cell_availability_pct` is still scrubbed into the file for analysis but is not used by any active rule. Other KPI columns come from the export under closed-loop names (`rrc_success_pct`, `drop_rate_pct`, `ul_noise_dbm`, `dl_tput_mbps`).
 
+## Digital twin / what-if prediction
+
+Before approval, the loop runs a lightweight what-if prediction (`closedloop/twin.py`) on every fault that has an action template. It uses the same fault→KPI map as `verify.py`, moves the current value ~60% of the way back toward the healthy threshold edge for that metric, and reports confidence from `simulator.fix_success_rate` (default 85%). The prediction is printed in the terminal and written onto the `act` audit event (`twin_predicted_value`, `twin_predicted_resolved`, `twin_confidence_pct`) so it can later be compared to the real `verify()` outcome. If the heuristic predicts the fix will **not** fully clear the metric, a warning is printed; approval is **not** blocked.
+
+**Honesty:** this is a deliberate small demonstration of the digital-twin *decision pattern* (predict before commit). It is **not** a trained model and **not** a PHY/channel/UE-level simulator. A production-grade twin would need calibrated response models (or ray-tracing / system-level RAN simulation), per-site RF and traffic context, and closed-loop comparison of predicted vs actual outcomes to retrain or retune the predictor — the audit fields are there so that calibration path is possible later.
+
 ## Known limitations
 
 - There is no action template for `pim`. Rules detect it and queue it for engineer review (physical inspection), and it is intentionally left off `auto_approve_faults`.
@@ -207,6 +214,7 @@ Optional: `--auto`, `--mode shadow`, etc. work as usual. `--seeds` does not (sim
 - The simulator is synthetic. KPI offsets are hand-written, and a matching action clears the injected fault 85% of the time (`fix_success_rate`).
 - Real-data mode cannot yet detect sleeping or dead cells reliably (see [Real data mode](#real-data-mode)). Synthetic `sleeping_cell` detection is solved.
 - On real PM, `prb_util_pct` is a traffic-normalized placeholder until a real PRB counter is available in the export.
+- The digital-twin stage is a heuristic gap-closure predictor, not a physics-based or learned twin (see [Digital twin / what-if prediction](#digital-twin--what-if-prediction)).
 
 ## Roadmap
 
@@ -216,9 +224,10 @@ Optional: `--auto`, `--mode shadow`, etc. work as usual. `--seeds` does not (sim
 2. Replace the simulator with a reader for real PM counter exports, keeping the same column names — Done (`closedloop/pm_reader.py`, `--source real`).
 3. Add a sleeping-cell rule so a quiet on-air cell can be detected without spending the Isolation Forest budget — Done for the synthetic simulator (`sleeping_cell_pattern` in `closedloop/detect.py`).
 4. Read-only status dashboard with password protection and dark theme — Done (`dashboard.py`, Tailscale / Funnel reachable).
+5. Digital-twin what-if stage before approval — Done (`closedloop/twin.py`; heuristic only).
 
 **Open**
 
-5. Real-data sleeping / dead-cell detection that survives low-resolution availability and low FWA PRB (see Real data mode).
-6. Replace the inferred real-data PRB placeholder with a true PRB counter once the export includes one.
-7. Add a digital-twin what-if stage that previews a change before approval.
+6. Real-data sleeping / dead-cell detection that survives low-resolution availability and low FWA PRB (see Real data mode).
+7. Replace the inferred real-data PRB placeholder with a true PRB counter once the export includes one.
+8. Calibrate or replace the twin heuristic using logged predicted-vs-actual verify outcomes; optionally a PHY/channel-level twin.

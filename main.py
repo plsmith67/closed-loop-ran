@@ -21,6 +21,7 @@ from closedloop.detect import detect
 from closedloop.diagnose import diagnose, command_for, rule_diagnose
 from closedloop.act import AuditLog, approve, execute
 from closedloop.verify import verify
+from closedloop.twin import predict_outcome, format_kpi_value
 
 EXPECTED_LABEL = {
     "ul_interference": "ul_interference",
@@ -183,10 +184,29 @@ def run(cfg, quiet=False, show_summary=True, run_suffix="", source="simulator",
                 log.write(ts=t, stage="escalate", cell=r["cell"],
                           failure_count=n_fail, **truth, **d)
                 continue
+            # Digital-twin what-if: predict primary-KPI outcome before approve.
+            twin = predict_outcome(r, d["fault_type"], cfg)
+            if not quiet:
+                status = ("RESOLVED" if twin["predicted_resolved"]
+                          else "NOT resolved")
+                print(f"    TWIN PREDICTION: {twin['kpi']} "
+                      f"{format_kpi_value(twin['kpi'], twin['before'])} -> "
+                      f"~{format_kpi_value(twin['kpi'], twin['predicted_value'])} "
+                      f"(predicted {status}, {twin['confidence_pct']}% confidence)")
+                print(f"    Basis: {twin['basis']}")
+                if not twin["predicted_resolved"]:
+                    print("    ⚠ Prediction suggests this fix may not fully "
+                          "resolve the issue — review before approving.")
             auto = auto_approve_for(d["fault_type"], lc)
             ok = True if quiet and auto else approve(
                 r["cell"], d["rca"], cmd, auto)
+            # Twin fields on act events set up predicted-vs-actual calibration
+            # against the matching verify() outcome on the next cycle.
             log.write(ts=t, stage="act", cell=r["cell"], cmd=cmd, approved=ok,
+                      twin_kpi=twin["kpi"],
+                      twin_predicted_value=twin["predicted_value"],
+                      twin_predicted_resolved=twin["predicted_resolved"],
+                      twin_confidence_pct=twin["confidence_pct"],
                       **truth, **d)
             if ok:
                 stats["actions"] += 1
