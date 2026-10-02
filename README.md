@@ -149,10 +149,18 @@ journalctl -u closed-loop-ran -n 50 --no-pager
 journalctl -u closed-loop-ran-cleanup -n 20 --no-pager
 ```
 
-Stop the loop timer:
+Stop (both timers):
 
 ```bash
 sudo systemctl disable --now closed-loop-ran.timer
+sudo systemctl disable --now closed-loop-ran-cleanup.timer
+```
+
+Start again later:
+
+```bash
+sudo systemctl enable --now closed-loop-ran.timer
+sudo systemctl enable --now closed-loop-ran-cleanup.timer
 ```
 
 ## Real data mode
